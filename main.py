@@ -9,5 +9,5 @@ class WPSBot(Bot):
 
 bot = WPSBot("!")
 
-bot.load_extension("lib.extensions.wps_commands")
+bot.load_extension("extensions.wps_commands")
 bot.run(token)
