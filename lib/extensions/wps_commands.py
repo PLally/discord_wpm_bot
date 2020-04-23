@@ -5,7 +5,7 @@ from time import time
 import random
 
 WORDS = open("/usr/share/dict/words_alpha.txt").read().split("\n")
-test_length = 10
+test_length = 60
 
 
 async def countdown(messageable, seconds):
@@ -23,9 +23,11 @@ class WordCounter(Queue):
         self.expected_words = []
         self.received_words = []
         self.current_word = None
+        self.next_words = random.choices(WORDS, k=50)
 
     def next_word(self):
-        word = random.choice(WORDS)
+        self.next_words.append(random.choice(WORDS))
+        word = self.next_words.pop(0)
         self.current_word = word
         return word
 
@@ -55,6 +57,12 @@ class WordCounter(Queue):
 
         return correct
 
+    @property
+    def message_status_content(self):
+        prev_words = " ".join(self.expected_words[:10])[-20:].rjust(20)
+        next_words = " ".join(self.next_words[:10])[:20]
+        return f"{prev_words} **{self.current_word}** {next_words}"
+
 
 class WPSCog(commands.Cog):
     def __init__(self, bot):
@@ -70,14 +78,22 @@ class WPSCog(commands.Cog):
         self.message_counters[ctx.author.id] = w
 
         start = time()
-        await ctx.send(w.next_word())
+        message = await ctx.send(w.next_word())
+
+        await message.edit(embed=Embed(
+            description=w.message_status_content,
+            color=0x1111aa,
+        ))
         while True:
             if w.empty():
                 await sleep(0.01)
             else:
                 _ = await w.get()
-                word = w.next_word()
-                await ctx.send(word)
+                w.next_word()
+                await message.edit(embed=Embed(
+                    description=w.message_status_content,
+                    color=0x1111aa,
+                ))
 
             time_elapsed = time() - start
             if time_elapsed > test_length:
@@ -105,7 +121,8 @@ class WPSCog(commands.Cog):
             return
 
         await q.put(message.content)
-
+        await sleep(5)
+        await message.delete()
 
 
 def setup(bot):
