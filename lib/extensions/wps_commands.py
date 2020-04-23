@@ -1,9 +1,11 @@
 from discord.ext import commands
+from discord import Embed
 from asyncio import sleep, Queue
 from time import time
 import random
 
-WORDS = open("words_alpha.txt").read().split("\n")
+WORDS = open("/usr/share/dict/words_alpha.txt").read().split("\n")
+test_length = 10
 
 
 async def countdown(messageable, seconds):
@@ -32,6 +34,27 @@ class WordCounter(Queue):
         self.received_words.append(word)
         return await super().put(word)
 
+    @property
+    def wpm(self):
+        return int(self.words_typed / test_length * 60)
+
+    @property
+    def words_typed(self):
+        return len(self.received_words)
+
+    @property
+    def percent_correct(self):
+        return int(self.words_correct / self.words_typed * 100)
+
+    @property
+    def words_correct(self):
+        correct = 0
+        for expected, received in zip(self.expected_words, self.received_words):
+            if expected == received:
+                correct += 1
+
+        return correct
+
 
 class WPSCog(commands.Cog):
     def __init__(self, bot):
@@ -57,13 +80,23 @@ class WPSCog(commands.Cog):
                 await ctx.send(word)
 
             time_elapsed = time() - start
-            if time_elapsed > 10:
+            if time_elapsed > test_length:
                 break
 
         await ctx.send("Times up!!")
 
-        await ctx.send("Expected: "+str(w.expected_words))
-        await ctx.send("Received: "+str(w.received_words))
+        description = f"**Words Typed**: {w.words_typed}\n" \
+                      f"**Words Correct**: {w.words_correct}\n" \
+                      f"**Percent Correct**: {w.percent_correct}%\n" \
+                      f"**Time Elapsed**: {test_length}\n"\
+                      f"**Words Per Minute**: {w.wpm}\n"
+        e = Embed(
+            title="Results",
+            description=description,
+            Color=0x1111AA
+        )
+
+        await ctx.send("", embed=e)
 
     @commands.Cog.listener()
     async def on_message(self, message):
